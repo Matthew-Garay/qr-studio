@@ -1,0 +1,16 @@
+# Dependencies / build
+node_modules/
+dist/
+.build/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Entorno
+.env
+.env.*
+
+# IDEs
+.vscode/
+.idea/
