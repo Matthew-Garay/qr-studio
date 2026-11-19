@@ -2,13 +2,13 @@
 // Generador de códigos QR basado en qr-code-styling (offline).
 // Exporta PNG, JPG, WebP, SVG y PDF con varias calidades de resolución.
 const $ = (id) => document.getElementById(id);
-const BASE_SIZE = 320; // tamaño base del canvas de renderizado (px)
+const BASE_SIZE = 320; // tamaño de la vista previa (px)
+const EXPORT_BASE = 150; // tamaño de exportación a calidad 1x (px)
 const DEBOUNCE_MS = 320;
 
 let qrInstance = null;
 let logoDataUrl = "";
-const mimeTypes = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
-const fileIcons = { text: "\U0001F4DD", url: "\U0001F517", wifi: "\U0001F4F6", vcard: "\U0001F912", sms: "\U0001F4E8", tel: "\U0001F4DE", mailto: "\u2709\uFE0F", whatsapp: "\U0001F44D" };
+const fileIcons = { text: "\u{1F4DD}", url: "\u{1F517}", wifi: "\u{1F4F6}", vcard: "\u{1F464}", sms: "\u{1F4E8}", tel: "\u{1F4DE}", mailto: "\u2709\uFE0F", whatsapp: "\u{1F4AC}" };
 
 function debounce(fn, ms) {
   let t;
@@ -41,7 +41,6 @@ function downloadBlob(blob, name) {
 }
 function updatePills() {
   $("marginVal").textContent = $("margin").value;
-  $("pixelSizeVal").textContent = $("pixelSize").value;
   $("logoSizeVal").textContent = $("logoSize").value + "%";
 }
 // construye el string de datos según el tipo de contenido seleccionado
@@ -105,7 +104,7 @@ function buildData() {
       if (pre) url += "?text=" + encodeURIComponent(pre);
       return { data: url, label: "WhatsApp", icon: fileIcons.whatsapp };
     }
-    default: return { data: raw || " ", label: "Texto", icon: "\U0001F4DD" };
+    default: return { data: raw || " ", label: "Texto", icon: fileIcons.text };
   }
 }
 
@@ -123,127 +122,107 @@ function rebuildExtra() {
   const wrap = $("extraFields");
   wrap.innerHTML = extraTemplates[type] ? (typeof extraTemplates[type] === "function" ? extraTemplates[type]() : extraTemplates[type]) : "";
 }
-function eyeShapeMap(v) {
-  const fg = $("fgColor").value;
-  switch (v) {
-    case "circle": return { type: "circle", color: fg };
-    case "rounded": return { type: "rounded", color: fg };
-    case "extraRounded": return { type: "extraRounded", color: fg };
-    case "default":
-    default: return { type: "default", color: fg };
-  }
-}
+const DOT_TYPES = { square: "square", rounded: "rounded", dots: "dots", extraRounded: "extra-rounded" };
+const EYE_TYPES = {
+  default: { square: "square", dot: "square" },
+  circle: { square: "dot", dot: "dot" },
+  rounded: { square: "rounded", dot: "dot" },
+  extraRounded: { square: "extra-rounded", dot: "dot" }
+};
 
 // ---------- opciones del motor ----------
-function buildOptions() {
-  const dotType = $("dotShape").value;
+function buildOptions(size = BASE_SIZE, type = "canvas") {
   const fg = $("fgColor").value;
   const bg = $("bgColor").value;
-  const ecc = $("ecc").value;
-  const margin = parseInt($("margin").value, 10) || 0;
+  const eye = EYE_TYPES[$("eyeShape").value] || EYE_TYPES.default;
+  const quiet = parseInt($("margin").value, 10) || 0; // en módulos
   const { data } = buildData();
   const opts = {
-    width: BASE_SIZE,
-    height: BASE_SIZE,
-    type: "canvas",
+    width: size,
+    height: size,
+    type,
     data: data || " ",
-    qrOptions: { errorCorrectionLevel: ecc, typeNumber: 0 },
-    margin: margin,
-    dotsOptions: { color: fg, type: dotType, padding: parseInt($("pixelSize").value, 10) / 10 },
+    margin: Math.round(quiet * size / 45),
+    qrOptions: { errorCorrectionLevel: $("ecc").value, typeNumber: 0 },
+    dotsOptions: { color: fg, type: DOT_TYPES[$("dotShape").value] || "square" },
     backgroundOptions: { color: bg },
-    cornersSquareOptions: { color: fg, type: $("eyeShape").value },
-    cornersDotOptions: eyeShapeMap($("eyeShape").value)
+    cornersSquareOptions: { color: fg, type: eye.square },
+    cornersDotOptions: { color: fg, type: eye.dot }
   };
   if (logoDataUrl) {
     opts.image = logoDataUrl;
-    opts.imageOptions = { hideBackgroundDots: true, imageSize: parseInt($("logoSize").value, 10) / 100, margin: parseInt($("logoSize").value, 10) / 20 };
+    opts.imageOptions = { hideBackgroundDots: true, imageSize: parseInt($("logoSize").value, 10) / 100, margin: 4, crossOrigin: "anonymous" };
   }
   return opts;
 }
 function setPreviewState(label, icon, invalid) {
   if (invalid) {
-    $("qrCanvasWrap").innerHTML = '<div class="empty-preview">\u26A0\uFE0F ' + (label || "Datos inv\u00E1lidos") + "</div>";
-    $("qrVersion").textContent = "\u2014";
+    qrInstance = null;
+    $("qrCanvasWrap").innerHTML = '<div class="empty-preview">⚠️ ' + (label || "Datos inválidos") + "</div>";
+    $("qrVersion").textContent = "—";
   }
-  $("qrMeta").textContent = (icon || "") + " " + (label || "\u2014");
+  $("qrMeta").textContent = (icon || "") + " " + (label || "—");
   $("qrMeta").style.opacity = invalid ? 0.6 : 1;
 }
 
 // ---------- render ----------
-async function render() {
+function render() {
   const { label, icon, invalid } = buildData();
   setPreviewState(label, icon, invalid);
   if (invalid) return;
   try {
     if (qrInstance) {
       qrInstance.update(buildOptions());
-      await qrInstance.getCanvas();
-      await refreshVersion();
-      return;
+    } else {
+      $("qrCanvasWrap").innerHTML = "";
+      qrInstance = new QRCodeStyling(buildOptions());
+      qrInstance.append($("qrCanvasWrap"));
     }
-    qrInstance = new QRCodeStyling(buildOptions());
-    $("qrCanvasWrap").append(qrInstance);
-    await qrInstance.getCanvas();
-    await refreshVersion();
+    refreshVersion();
   } catch (e) {
     console.error(e);
-    $("qrCanvasWrap").innerHTML = '<div class="empty-preview">Error al generar el c\u00F3digo QR.</div>';
+    qrInstance = null;
+    $("qrCanvasWrap").innerHTML = '<div class="empty-preview">Error al generar el código QR.</div>';
   }
 }
-async function refreshVersion() {
-  try {
-    const raw = await qrInstance.getRawData();
-    const count = (raw || []).length;
-    $("qrVersion").textContent = count ? ("m\u00F3dulos: " + count) : "\u2014";
-  } catch { $("qrVersion").textContent = "\u2014"; }
+function refreshVersion() {
+  const qr = qrInstance && qrInstance._qr;
+  const n = qr && typeof qr.getModuleCount === "function" ? qr.getModuleCount() : 0;
+  $("qrVersion").textContent = n ? ("Versión " + ((n - 17) / 4) + " · " + n + "×" + n + " módulos") : "—";
 }
+
 // ---------- exportación ----------
+async function rawData(ext, size) {
+  const type = ext === "svg" ? "svg" : "canvas";
+  const tmp = new QRCodeStyling(buildOptions(size, type));
+  return tmp.getRawData(ext);
+}
 async function exportQr() {
-  if (!qrInstance) return;
   const { invalid } = buildData();
   if (invalid) { alert("Corrija los datos antes de exportar."); return; }
   const fmt = $("exportFormat").value;
-  const scale = parseInt($("quality").value, 10) || 1;
+  const size = EXPORT_BASE * (parseInt($("quality").value, 10) || 1);
   const name = sanitizeFilename($("fileName").value || "codigo-qr", fmt);
   try {
-    if (fmt === "svg") {
-      const svg = await qrInstance.getSVGString();
-      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-      downloadBlob(blob, name);
-    } else if (fmt === "pdf") {
-      await exportPdf(scale, name);
+    if (fmt === "pdf") {
+      await exportPdf(size, name);
     } else {
-      const src = await qrInstance.getPlainCanvas();
-      const out = document.createElement("canvas");
-      out.width = src.width * scale;
-      out.height = src.height * scale;
-      const ctx = out.getContext("2d");
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(src, 0, 0, out.width, out.height);
-      const quality = fmt === "png" ? 1 : 0.95;
-      out.toBlob((b) => downloadUrl(URL.createObjectURL(b), name), mimeTypes[fmt], quality);
+      const blob = await rawData(fmt === "jpg" ? "jpeg" : fmt, size);
+      downloadBlob(blob, name);
     }
   } catch (e) {
     console.error(e);
-    alert("No se pudo exportar. Abra la consola para m\u00E1s detalle.");
+    alert("No se pudo exportar. Abra la consola para más detalle.");
   }
 }
-async function exportPdf(scale, name) {
+async function exportPdf(size, name) {
   const { jsPDF } = window.jspdf;
-  const src = await qrInstance.getPlainCanvas();
-  const wPx = src.width * scale;
-  const hPx = src.height * scale;
-  const out = document.createElement("canvas");
-  out.width = wPx; out.height = hPx;
-  out.getContext("2d").drawImage(src, 0, 0, wPx, hPx);
-  const imgData = out.toDataURL("image/png");
-  const dpi = 96; // css px -> pt
-  const wPt = (wPx / dpi) * 72;
-  const hPt = (hPx / dpi) * 72;
-  const pdf = new jsPDF({ unit: "pt", format: [wPt, hPt] });
-  pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
-  const blob = pdf.output("blob");
-  downloadBlob(blob, name.replace(/\.[^.]+$/, ".pdf"));
+  const blob = await rawData("png", size);
+  const imgData = await readFileAsDataURL(blob);
+  const pt = (size / 96) * 72; // px -> pt
+  const pdf = new jsPDF({ unit: "pt", format: [pt, pt] });
+  pdf.addImage(imgData, "PNG", 0, 0, pt, pt);
+  downloadBlob(pdf.output("blob"), name.replace(/\.[^.]+$/, ".pdf"));
 }
 
 // ---------- logo ----------
@@ -272,9 +251,10 @@ function assignSlider(id, target) {
 function boot() {
   updatePills();
   rebuildExtra();
-  const saved = localStorage.getItem("qrStudio.data");
-  if (saved) { $("dataText").value = saved; }
-  ["contentType","dataText","fgColor","bgColor","dotShape","eyeShape","ecc","margin","pixelSize","logoSize","exportFormat","fileName"].forEach((id) => {
+  let saved = "";
+  try { saved = localStorage.getItem("qrStudio.data") || ""; } catch {}
+  $("dataText").value = saved || "https://github.com/Matthew-Garay";
+  ["contentType","dataText","fgColor","bgColor","dotShape","eyeShape","ecc","margin","logoSize","exportFormat","fileName"].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.addEventListener("input", renderDebounced);
@@ -284,10 +264,9 @@ function boot() {
   $("downloadBtn").addEventListener("click", exportQr);
   $("contentType").addEventListener("change", () => { rebuildExtra(); render(); });
   assignSlider("margin", "marginVal");
-  assignSlider("pixelSize", "pixelSizeVal");
   assignSlider("logoSize", "logoSizeVal");
   $("dataText").addEventListener("input", () => {
-    localStorage.setItem("qrStudio.data", $("dataText").value);
+    try { localStorage.setItem("qrStudio.data", $("dataText").value); } catch {}
   });
   $("downloadBtn").disabled = false;
   render();

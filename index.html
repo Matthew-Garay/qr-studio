@@ -8,7 +8,7 @@
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
@@ -93,14 +93,6 @@
           </div>
         </div>
 
-        <div class="field">
-          <label for="pixelSize">Tamaño de módulos</label>
-          <div class="row-gap">
-            <input type="range" id="pixelSize" class="slider" min="2" max="16" value="6">
-            <span class="pill" id="pixelSizeVal">6</span>
-          </div>
-        </div>
-
         <fieldset class="field">
           <legend>Logo / imagen central</legend>
           <div class="logo-picker">
@@ -167,8 +159,8 @@
     <p>QR Studio · Generador gratuito y sin publicidad. Hecho con HTML/CSS/JS + <a href="https://github.com/kazuhikoarita/qr-code-styling" target="_blank" rel="noopener">qr-code-styling</a>.</p>
   </footer>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-code-styling/2.0.0/qr-code-styling.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="./js/vendor/qr-code-styling.js"></script>
+  <script src="./js/vendor/jspdf.umd.min.js"></script>
   <script src="./js/app.js" type="module"></script>
 </body>
 </html>

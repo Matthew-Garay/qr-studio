@@ -1,5 +1,9 @@
 # QR Studio
 
+**[Probar la demo en línea](https://matthew-garay.github.io/qr-studio/)**
+
+![Captura de QR Studio](docs/captura.png)
+
 Generador de códigos QR **100% offline** (funciona solo en el navegador: tus datos
 nunca salen de tu equipo). Descarga el código QR en **PNG, JPG, WebP, SVG y PDF**
 con varias calidades de resolución y muchas opciones de personalización.
